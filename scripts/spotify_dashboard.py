@@ -403,7 +403,6 @@ def get_similar_for_new(song_id,
 
 
 
-
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app =dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -411,19 +410,55 @@ app =dash.Dash(__name__, external_stylesheets=external_stylesheets)
 #single dictionary would be single line/one set of bars
 
 
+app.config.suppress_callback_exceptions = True
 
-col_names=['song_ids','song_names','distances']
-#html of entire project
-app.layout  =html.Div(children=[
-    html.Div(children='Diff genre, same key and tempo only work for songs not in collaborative database'),
+
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    html.Div(id='page-content')
+])
+
+#this is the html for reccomendation page
+rec_page =html.Div(children=[
+    html.Div(children='Diff genre, same key and tempo only used for songs not in collaborative database'),
     dcc.Input(id='input',value='song_id',type='text'),
     dcc.Input(id='input_2',value='num of songs',type='text'),
     dcc.Input(id='input_3',value='diff_genre',type='text'),
     dcc.Input(id='input_4',value='same_key',type='text'),
     dcc.Input(id='input_5',value='similar_tempo',type='text'),
-    html.Div(children=[html.Table(id='table'), html.Div(id='table-output')])
+    html.Div(children=[html.Table(id='table'), html.Div(id='table-output')]),
+    dcc.Link('Go back to home', href='/')
 
     ])
+
+#this is the home page
+index_page = html.Div([
+    dcc.Link('Go to DJ Searcher', href='/page-1'),
+    html.Br(),
+    dcc.Link('Go to Music Reccomender', href='/page-2'),
+])
+
+#this is the page for getting every song that a DJ has played in the database
+page_1_layout = html.Div([
+    dcc.Input(id='DJ',value='DJ_name',type='text'),
+    html.Div(children=[html.Table(id='DJ_table'), html.Div(id='DJ_table-output')]),
+    html.Br(),
+    dcc.Link('Go back to home', href='/'),
+])
+
+@app.callback(dash.dependencies.Output('page-content', 'children'),
+              [dash.dependencies.Input('url', 'pathname')])
+
+#for switching between pages
+def display_page(pathname):
+    if pathname == '/page-1':
+        return page_1_layout
+    elif pathname == '/page-2':
+        return rec_page
+    else:
+
+        return index_page
+    
 
 
 @app.callback(
@@ -435,7 +470,7 @@ app.layout  =html.Div(children=[
     Input(component_id='input_5',component_property='value')
     ]
     )
-
+#this is the 
 def update_table(input_data1,input_data2,input_data3,input_data4,input_data5):
     try:
         num_songs = int(input_data2)
@@ -450,13 +485,14 @@ def update_table(input_data1,input_data2,input_data3,input_data4,input_data5):
                         diff_genre=input_data3,
                         same_key=input_data4,
                         similar_tempo=input_data5 )
-    if 'set_list' in similar_songs_df.columns.tolist():
-        similar_songs_df.drop(columns=['artist','song','user_nums','song_nums','songs','size','set_title'],inplace=True)
+    #this is to check if the dataframe is from the collaborative filter or the other one
+    if 'song_name_mixesdb' in similar_songs_df.columns.tolist():
+        similar_songs_df.drop(columns=['artist','song','user_nums','song_nums','songs','plays','set_title'],inplace=True)
         similar_songs_df.columns=['song_and_artist','spotify_song_name','spotify_id','spotify_preview','set_dj']
         similar_songs_df.drop_duplicates(subset=['spotify_id'],inplace=True)
     similar_songs_df.fillna('-')
 
-
+    #creating dash table
     data_table = dash_table.DataTable(id='datatable-data',
                                         data = similar_songs_df.to_dict('records'),
                                         columns =[{'id': c , 'name':c} for c in similar_songs_df.columns],
@@ -473,9 +509,34 @@ def update_table(input_data1,input_data2,input_data3,input_data4,input_data5):
     #data = [a for sublist in data ]
     return data_table
 
-   
-        
-
+@app.callback(
+    Output(component_id='DJ_table-output',component_property='children'),
+    [Input(component_id='DJ',component_property='value')
+    ]
+    )           
+def update_table_dj(dj_name):
+    # returns all the songs a dj has played
+    if dj_name in collab_df.set_title_split.unique():
+        dj_df=collab_df[collab_df.set_title_split==dj_name]
+        dj_df.drop(columns=['user_nums','song_nums','size','songs','set_list'],inplace=True)
+        dj_df.drop_duplicates(inplace=True)
+        data_table = dash_table.DataTable(id='datatable-dj',
+                                            data = dj_df.to_dict('records'),
+                                            columns =[{'id': c , 'name':c} for c in dj_df.columns],
+                                             #fixed_rows={'headers': True, 'data': 10},
+                                           # style_cell={'width': '100px'},
+                                            style_table={'overflowX': 'scroll'},
+                                            style_data_conditional=[ {
+                                                'if': {'row_index': 'odd'},
+                                                 'backgroundColor': 'rgb(248, 248, 248)'}],
+                                            style_header={
+                                                'backgroundColor': 'rgb(230, 230, 230)',
+                                                'fontWeight': 'bold'
+                                            })
+        #data = [a for sublist in data ]
+        return data_table
+    else:
+        return 'no songs available'
 
 
 if __name__ =='__main__':
