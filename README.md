@@ -1,4 +1,4 @@
-# -Music_Recommendation_System
+# Music_Recommendation_System
 Music recommendation system for DJs looking for new songs
 
 ## Contents
