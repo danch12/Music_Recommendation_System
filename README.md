@@ -11,7 +11,7 @@ Music recommendation system for DJs looking for new songs
 ## Packages Used
 * Pandas
 * Scikit-learn
-* Tensorflow
+* Tensorflow (2.0.0)
 * Numpy
 * Itertools
 * Scipy
